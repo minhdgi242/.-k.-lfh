@@ -34,9 +34,9 @@ jobs:
 
       - name: Create RDP User
         run: |
+          sudo useradd -m -s /bin/bash HUU_MINH
           echo "HUU_MINH:HUU-MINH@123" | sudo chpasswd
-          sudo adduser HUU_MINH sudo --gecos "" --disabled-password
-          echo "HUU_MINH:HUU-MINH@123" | sudo chpasswd
+          sudo usermod -aG sudo HUU_MINH
           echo "HUU_MINH ALL=(ALL) NOPASSWD:ALL" | sudo tee -a /etc/sudoers
 
       - name: Install SSHX
