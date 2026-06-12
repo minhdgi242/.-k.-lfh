@@ -49,114 +49,116 @@ jobs:
           pip install pyTelegramBotAPI
 
       - name: Create Telegram Bot Script
-        shell: cmd
         run: |
-          echo import telebot > telegram_bot.py
-          echo import os >> telegram_bot.py
-          echo import subprocess >> telegram_bot.py
-          echo import shutil >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo ADMIN_ID = 7235906278 >> telegram_bot.py
-          echo BOT_TOKEN = "7845936454:AAGLNFLkCd9y_cJGtnPc_XkbUoN6mF3Cnxg" >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo bot = telebot.TeleBot(BOT_TOKEN) >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo UPLOAD_FOLDER = "uploads" >> telegram_bot.py
-          echo os.makedirs(UPLOAD_FOLDER, exist_ok=True) >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo def is_admin(message): >> telegram_bot.py
-          echo     return message.from_user.id == ADMIN_ID >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(commands=['cmd']) >> telegram_bot.py
-          echo def handle_cmd(message): >> telegram_bot.py
-          echo     if not is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     command = message.text.replace('/cmd', '').strip() >> telegram_bot.py
-          echo     if not command: >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Chua co lenh. Cu phap: /cmd ^<lenh cmd/powershell^>") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     try: >> telegram_bot.py
-          echo         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8') >> telegram_bot.py
-          echo         output = result.stdout + result.stderr >> telegram_bot.py
-          echo         if not output.strip(): >> telegram_bot.py
-          echo             output = "(Khong co dau ra)" >> telegram_bot.py
-          echo         if len(output) > 4096: >> telegram_bot.py
-          echo             output = output[:4093] + "..." >> telegram_bot.py
-          echo         bot.reply_to(message, f"Lenh: {command}\nDau ra:\n{output}") >> telegram_bot.py
-          echo     except subprocess.TimeoutExpired: >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Lenh chay qua 30 giay") >> telegram_bot.py
-          echo     except Exception as e: >> telegram_bot.py
-          echo         bot.reply_to(message, f"Loi thuc thi: {str(e)}") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(commands=['upfile']) >> telegram_bot.py
-          echo def handle_upfile(message): >> telegram_bot.py
-          echo     if not is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     bot.reply_to(message, "Hay gui file duoi dang tai lieu (document).") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(content_types=['document']) >> telegram_bot.py
-          echo def handle_document(message): >> telegram_bot.py
-          echo     if not is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     try: >> telegram_bot.py
-          echo         file_info = bot.get_file(message.document.file_id) >> telegram_bot.py
-          echo         downloaded_file = bot.download_file(file_info.file_path) >> telegram_bot.py
-          echo         save_path = os.path.join(UPLOAD_FOLDER, message.document.file_name) >> telegram_bot.py
-          echo         with open(save_path, 'wb') as new_file: >> telegram_bot.py
-          echo             new_file.write(downloaded_file) >> telegram_bot.py
-          echo         bot.reply_to(message, f"Tai file thanh cong: {save_path}") >> telegram_bot.py
-          echo     except Exception as e: >> telegram_bot.py
-          echo         bot.reply_to(message, f"Tai file that bai: {str(e)}") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(commands=['rmfile']) >> telegram_bot.py
-          echo def handle_rmfile(message): >> telegram_bot.py
-          echo     if not is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     filename = message.text.replace('/rmfile', '').strip() >> telegram_bot.py
-          echo     if not filename: >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Chua ten file. Cu phap: /rmfile ^<ten_file^>") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     file_path = os.path.join(UPLOAD_FOLDER, filename) >> telegram_bot.py
-          echo     try: >> telegram_bot.py
-          echo         if os.path.exists(file_path): >> telegram_bot.py
-          echo             os.remove(file_path) >> telegram_bot.py
-          echo             bot.reply_to(message, f"Da xoa file: {file_path}") >> telegram_bot.py
-          echo         else: >> telegram_bot.py
-          echo             bot.reply_to(message, f"Khong tim thay file: {file_path}") >> telegram_bot.py
-          echo     except Exception as e: >> telegram_bot.py
-          echo         bot.reply_to(message, f"Loi xoa file: {str(e)}") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(commands=['lsfile']) >> telegram_bot.py
-          echo def handle_lsfile(message): >> telegram_bot.py
-          echo     if not is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin") >> telegram_bot.py
-          echo         return >> telegram_bot.py
-          echo     try: >> telegram_bot.py
-          echo         files = os.listdir(UPLOAD_FOLDER) >> telegram_bot.py
-          echo         if not files: >> telegram_bot.py
-          echo             bot.reply_to(message, "Thu muc uploads trong.") >> telegram_bot.py
-          echo             return >> telegram_bot.py
-          echo         file_list = "\n".join(files) >> telegram_bot.py
-          echo         if len(file_list) > 4096: >> telegram_bot.py
-          echo             file_list = file_list[:4093] + "..." >> telegram_bot.py
-          echo         bot.reply_to(message, f"Danh sach file trong uploads:\n{file_list}") >> telegram_bot.py
-          echo     except Exception as e: >> telegram_bot.py
-          echo         bot.reply_to(message, f"Loi doc thu muc: {str(e)}") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo @bot.message_handler(commands=['start']) >> telegram_bot.py
-          echo def handle_start(message): >> telegram_bot.py
-          echo     if is_admin(message): >> telegram_bot.py
-          echo         bot.reply_to(message, "Bot RDP san sang. Cac lenh: /cmd, /upfile, /rmfile, /lsfile") >> telegram_bot.py
-          echo     else: >> telegram_bot.py
-          echo         bot.reply_to(message, "Bot chi danh cho admin") >> telegram_bot.py
-          echo. >> telegram_bot.py
-          echo if __name__ == "__main__": >> telegram_bot.py
-          echo     print("Bot dang chay...") >> telegram_bot.py
-          echo     bot.infinity_polling() >> telegram_bot.py
+          $botCode = @'
+import telebot
+import os
+import subprocess
+import shutil
+
+ADMIN_ID = 7235906278
+BOT_TOKEN = "7845936454:AAGLNFLkCd9y_cJGtnPc_XkbUoN6mF3Cnxg"
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def is_admin(message):
+    return message.from_user.id == ADMIN_ID
+
+@bot.message_handler(commands=['cmd'])
+def handle_cmd(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Loi: Ban khong phai admin")
+        return
+    command = message.text.replace('/cmd', '').strip()
+    if not command:
+        bot.reply_to(message, "Loi: Chua co lenh. Cu phap: /cmd <lenh>")
+        return
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+        output = result.stdout + result.stderr
+        if not output.strip():
+            output = "(Khong co dau ra)"
+        if len(output) > 4096:
+            output = output[:4093] + "..."
+        bot.reply_to(message, f"Lenh: {command}\nDau ra:\n{output}")
+    except subprocess.TimeoutExpired:
+        bot.reply_to(message, "Loi: Lenh chay qua 30 giay")
+    except Exception as e:
+        bot.reply_to(message, f"Loi thuc thi: {str(e)}")
+
+@bot.message_handler(commands=['upfile'])
+def handle_upfile(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Loi: Ban khong phai admin")
+        return
+    bot.reply_to(message, "Hay gui file duoi dang tai lieu (document).")
+
+@bot.message_handler(content_types=['document'])
+def handle_document(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Loi: Ban khong phai admin")
+        return
+    try:
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        save_path = os.path.join(UPLOAD_FOLDER, message.document.file_name)
+        with open(save_path, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.reply_to(message, f"Tai file thanh cong: {save_path}")
+    except Exception as e:
+        bot.reply_to(message, f"Tai file that bai: {str(e)}")
+
+@bot.message_handler(commands=['rmfile'])
+def handle_rmfile(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Loi: Ban khong phai admin")
+        return
+    filename = message.text.replace('/rmfile', '').strip()
+    if not filename:
+        bot.reply_to(message, "Loi: Chua ten file. Cu phap: /rmfile <ten_file>")
+        return
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            bot.reply_to(message, f"Da xoa file: {file_path}")
+        else:
+            bot.reply_to(message, f"Khong tim thay file: {file_path}")
+    except Exception as e:
+        bot.reply_to(message, f"Loi xoa file: {str(e)}")
+
+@bot.message_handler(commands=['lsfile'])
+def handle_lsfile(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Loi: Ban khong phai admin")
+        return
+    try:
+        files = os.listdir(UPLOAD_FOLDER)
+        if not files:
+            bot.reply_to(message, "Thu muc uploads trong.")
+            return
+        file_list = "\n".join(files)
+        if len(file_list) > 4096:
+            file_list = file_list[:4093] + "..."
+        bot.reply_to(message, f"Danh sach file trong uploads:\n{file_list}")
+    except Exception as e:
+        bot.reply_to(message, f"Loi doc thu muc: {str(e)}")
+
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    if is_admin(message):
+        bot.reply_to(message, "Bot RDP san sang. Cac lenh: /cmd, /upfile, /rmfile, /lsfile")
+    else:
+        bot.reply_to(message, "Bot chi danh cho admin")
+
+if __name__ == "__main__":
+    print("Bot dang chay...")
+    bot.infinity_polling()
+'@
+          $botCode | Out-File -FilePath "telegram_bot.py" -Encoding UTF8
 
       - name: Install Tailscale
         run: |
@@ -209,6 +211,7 @@ jobs:
           $IP = "$env:TAILSCALE_IP"
           $startTime = Get-Date
           $maxMinutes = 280
+          $heartbeatCounter = 0
           while (((Get-Date) - $startTime).TotalMinutes -lt $maxMinutes) {
               Write-Host "[$(Get-Date)] RDP Active - Connect to $IP`:3389"
               Write-Host "Username: HUU_MINH | Password: HUU-MINH@123"
@@ -216,12 +219,16 @@ jobs:
               if ($LASTEXITCODE -ne 0) {
                   & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
               }
-              $heartbeat = @{
-                  chat_id = "7235906278"
-                  text = "[HEARTBEAT] RDP still running. Uptime: $([math]::Round(((Get-Date) - $startTime).TotalMinutes,0)) minutes. IP: $IP"
-              } | ConvertTo-Json
-              Invoke-RestMethod -Uri $url -Method Post -Body $heartbeat -ContentType "application/json" -ErrorAction SilentlyContinue
-              Start-Sleep -Seconds 3600
+              $heartbeatCounter++
+              if ($heartbeatCounter -ge 60) {
+                  $heartbeat = @{
+                      chat_id = "7235906278"
+                      text = "[HEARTBEAT] RDP still running. Uptime: $([math]::Round(((Get-Date) - $startTime).TotalMinutes,0)) minutes. IP: $IP"
+                  } | ConvertTo-Json
+                  Invoke-RestMethod -Uri $url -Method Post -Body $heartbeat -ContentType "application/json" -ErrorAction SilentlyContinue
+                  $heartbeatCounter = 0
+              }
+              Start-Sleep -Seconds 60
           }
           Write-Host "Shutting down for scheduled restart..."
 
