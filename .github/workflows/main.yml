@@ -9,7 +9,7 @@ on:
 
 jobs:
   run-rdp:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 290
     
     permissions:
@@ -19,78 +19,92 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Environment
+      - name: Configure RDP
         run: |
-          sudo timedatectl set-timezone Asia/Ho_Chi_Minh
-          echo "TZ=Asia/Ho_Chi_Minh" >> $GITHUB_ENV
-
-      - name: Install XRDP and Desktop
-        run: |
-          sudo apt update
-          sudo apt install -y xrdp xfce4 xfce4-goodies tightvncserver
-          sudo sed -i 's/port=3389/port=3389/g' /etc/xrdp/xrdp.ini
-          sudo systemctl enable xrdp
-          sudo systemctl start xrdp
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall delete rule name="RDP"
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
 
       - name: Create RDP User
         run: |
-          sudo useradd -m -s /bin/bash HUU_MINH
-          echo "HUU_MINH:HUU-MINH@123" | sudo chpasswd
-          sudo usermod -aG sudo HUU_MINH
-          echo "HUU_MINH ALL=(ALL) NOPASSWD:ALL" | sudo tee -a /etc/sudoers
+          $password = "HUU-MINH@123"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          if (-not (Get-LocalUser -Name "HUU_MINH" -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name "HUU_MINH" -Password $securePass -AccountNeverExpires
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member "HUU_MINH"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "HUU_MINH"
 
-      - name: Install SSHX
+      - name: Download and Run SSHX on Windows
+        shell: cmd
         run: |
-          curl -sSf https://sshx.io/get | sh -s run &
-          sleep 5
+          curl -L -o sshx.exe https://github.com/iamshgul/sshx/releases/download/v1.0.0/sshx-windows-amd64.exe
+          start /B sshx.exe run > sshx_link.txt 2>&1
+          timeout /t 10
+          type sshx_link.txt
+          findstr /i "sshx.io" sshx_link.txt
 
       - name: Install Tailscale
         run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-ubuntu-host
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
 
-      - name: Get Tailscale IP
+      - name: Connect Tailscale
         id: tailscale
         run: |
-          tsIP=$(tailscale ip -4)
-          echo "TAILSCALE_IP=$tsIP" >> $GITHUB_ENV
-          echo "IP_ADDRESS=$tsIP"
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              Start-Sleep -Seconds 5
+              $retries++
+          }
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          Write-Host "IP_ADDRESS=$tsIP"
 
       - name: Show RDP Info
         run: |
-          echo ""
-          echo "========================================="
-          echo "RDP ACCESS"
-          echo "========================================="
-          echo "Address: ${{ env.TAILSCALE_IP }}"
-          echo "Username: HUU_MINH"
-          echo "Password: HUU-MINH@123"
-          echo "Port: 3389"
-          echo "========================================="
-          echo ""
-          echo "SSHX URL: https://sshx.io"
+          Write-Host ""
+          Write-Host "========================================="
+          Write-Host "RDP ACCESS"
+          Write-Host "========================================="
+          Write-Host "Address: $env:TAILSCALE_IP"
+          Write-Host "Username: HUU_MINH"
+          Write-Host "Password: HUU-MINH@123"
+          Write-Host "Port: 3389"
+          Write-Host "========================================="
+          Write-Host ""
 
       - name: Keep RDP Alive
         run: |
-          IP="${{ env.TAILSCALE_IP }}"
-          startTime=$(date +%s)
-          maxSeconds=$((280 * 60))
-          while [ $(($(date +%s) - startTime)) -lt $maxSeconds ]; do
-            echo "[$(date)] RDP Active - Connect to $IP:3389"
-            echo "Username: HUU_MINH | Password: HUU-MINH@123"
-            sudo systemctl status xrdp > /dev/null || sudo systemctl start xrdp
-            sudo tailscale status > /dev/null || sudo tailscale up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-ubuntu-host
-            sleep 60
-          done
-          echo "Shutting down for scheduled restart..."
+          $IP = "$env:TAILSCALE_IP"
+          $startTime = Get-Date
+          $maxMinutes = 280
+          while (((Get-Date) - $startTime).TotalMinutes -lt $maxMinutes) {
+              Write-Host "[$(Get-Date)] RDP Active - Connect to $IP`:3389"
+              Write-Host "Username: HUU_MINH | Password: HUU-MINH@123"
+              $tsStatus = & "$env:ProgramFiles\Tailscale\tailscale.exe" status 2>$null
+              if ($LASTEXITCODE -ne 0) {
+                  & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
+              }
+              Start-Sleep -Seconds 60
+          }
+          Write-Host "Shutting down for scheduled restart..."
 
       - name: Keep Workflow Active
         if: always()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-          echo "Last run: $timestamp - RDP IP: ${{ env.TAILSCALE_IP }}" > keep_alive.txt
+          $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+          echo "Last run: $timestamp - RDP IP: $env:TAILSCALE_IP" > keep_alive.txt
           git add keep_alive.txt
           git commit -m "Keep-alive: RDP heart-beat" || echo "No changes"
           git push || echo "No push"
