@@ -56,7 +56,7 @@ jobs:
           echo import subprocess
           echo.
           echo ADMIN_ID = 7235906278
-          echo BOT_TOKEN = "7845936454:AAGLNFLkCd9y_cJGtnPc_XkbUoN6mF3Cnxg"
+          echo BOT_TOKEN = "7845936454:AAGXrQsn4HRpj4cmVxXD-pMvgbXA-9ztu48"
           echo.
           echo bot = telebot.TeleBot(BOT_TOKEN)
           echo.
