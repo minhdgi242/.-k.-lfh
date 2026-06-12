@@ -38,39 +38,11 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "HUU_MINH"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "HUU_MINH"
 
-      - name: Download and Run Ngrok
+      - name: Get IP Address
         run: |
-          curl -L -o ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-windows-amd64.zip
-          tar -xf ngrok.zip
-          .\ngrok.exe authtoken 2qqMdfjDdhnybVZO6D23BQoE6G0_2ZyXx5FbmdB7bXsNr2W9M
-          Start-Process -NoNewWindow -FilePath ".\ngrok.exe" -ArgumentList "tcp 3389" -RedirectStandardOutput "ngrok_output.txt"
-          Start-Sleep -Seconds 10
-          Get-Content ngrok_output.txt
-          $ngrokUrl = (Select-String -Path ngrok_output.txt -Pattern "tcp://[0-9]+\.tcp\.ngrok\.io:[0-9]+" | ForEach-Object { $_.Matches.Value })
-          echo "NGROK_URL=$ngrokUrl" >> $env:GITHUB_ENV
-          Write-Host "Ngrok URL: $ngrokUrl"
-
-      - name: Install Tailscale
-        run: |
-          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
-          $installerPath = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
-          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
-          Remove-Item $installerPath -Force
-
-      - name: Connect Tailscale
-        id: tailscale
-        run: |
-          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
-          $tsIP = $null
-          $retries = 0
-          while (-not $tsIP -and $retries -lt 10) {
-              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
-              Start-Sleep -Seconds 5
-              $retries++
-          }
-          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
-          Write-Host "IP_ADDRESS=$tsIP"
+          $publicIP = (Invoke-RestMethod -Uri "https://api.ipify.org").Trim()
+          echo "PUBLIC_IP=$publicIP" >> $env:GITHUB_ENV
+          Write-Host "Public IP: $publicIP"
 
       - name: Show RDP Info
         run: |
@@ -78,28 +50,24 @@ jobs:
           Write-Host "========================================="
           Write-Host "RDP ACCESS"
           Write-Host "========================================="
-          Write-Host "Tailscale Address: $env:TAILSCALE_IP"
-          Write-Host "Ngrok Address: $env:NGROK_URL"
+          Write-Host "Address: $env:PUBLIC_IP"
           Write-Host "Username: HUU_MINH"
           Write-Host "Password: HUU-MINH@123"
           Write-Host "Port: 3389"
           Write-Host "========================================="
           Write-Host ""
+          Write-Host "Note: GitHub Actions does not expose incoming ports."
+          Write-Host "You need a tunnel service (ngrok/cloudflared) to connect."
+          Write-Host "========================================="
 
       - name: Keep RDP Alive
         run: |
-          $IP = "$env:TAILSCALE_IP"
           $startTime = Get-Date
           $maxMinutes = 280
           while (((Get-Date) - $startTime).TotalMinutes -lt $maxMinutes) {
-              Write-Host "[$(Get-Date)] RDP Active"
-              Write-Host "Tailscale: $IP`:3389"
-              Write-Host "Ngrok: $env:NGROK_URL"
+              Write-Host "[$(Get-Date)] RDP Service Running"
               Write-Host "Username: HUU_MINH | Password: HUU-MINH@123"
-              $tsStatus = & "$env:ProgramFiles\Tailscale\tailscale.exe" status 2>$null
-              if ($LASTEXITCODE -ne 0) {
-                  & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
-              }
+              Write-Host "To connect, you need a tunnel service like ngrok or cloudflared"
               Start-Sleep -Seconds 60
           }
           Write-Host "Shutting down for scheduled restart..."
@@ -110,8 +78,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-          echo "Last run: $timestamp - RDP IP: $env:TAILSCALE_IP" > keep_alive.txt
-          echo "Ngrok: $env:NGROK_URL" >> keep_alive.txt
+          echo "Last run: $timestamp - Public IP: $env:PUBLIC_IP" > keep_alive.txt
           git add keep_alive.txt
           git commit -m "Keep-alive: RDP heart-beat" || echo "No changes"
           git push || echo "No push"
