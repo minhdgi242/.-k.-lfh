@@ -38,125 +38,20 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "HUU_MINH"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "HUU_MINH"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python Packages
+      - name: Install Tmate
         run: |
-          python -m pip install --upgrade pip
-          pip install pyTelegramBotAPI
+          curl -L https://github.com/tmate-io/tmate/releases/download/2.4.0/tmate-2.4.0-static-windows-amd64.exe -o tmate.exe
+          mkdir -p C:\tmate
+          move tmate.exe C:\tmate\tmate.exe
+          echo "C:\tmate" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
-      - name: Create Telegram Bot Script
-        shell: cmd
+      - name: Start Tmate
         run: |
-          (echo import telebot
-          echo import os
-          echo import subprocess
-          echo.
-          echo ADMIN_ID = 7235906278
-          echo BOT_TOKEN = "7845936454:AAGXrQsn4HRpj4cmVxXD-pMvgbXA-9ztu48"
-          echo.
-          echo bot = telebot.TeleBot(BOT_TOKEN)
-          echo.
-          echo UPLOAD_FOLDER = "uploads"
-          echo os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-          echo.
-          echo def is_admin(message^):
-          echo     return message.from_user.id == ADMIN_ID
-          echo.
-          echo @bot.message_handler(commands=['cmd'])
-          echo def handle_cmd(message^):
-          echo     if not is_admin(message^):
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin")
-          echo         return
-          echo     command = message.text.replace('/cmd', '').strip(^)
-          echo     if not command:
-          echo         bot.reply_to(message, "Loi: Chua co lenh. Cu phap: /cmd ^<lenh^>")
-          echo         return
-          echo     try:
-          echo         result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
-          echo         output = result.stdout + result.stderr
-          echo         if not output.strip(^):
-          echo             output = "(Khong co dau ra)"
-          echo         if len(output^) > 4096:
-          echo             output = output[:4093] + "..."
-          echo         bot.reply_to(message, f"Lenh: {command}\nDau ra:\n{output}")
-          echo     except subprocess.TimeoutExpired:
-          echo         bot.reply_to(message, "Loi: Lenh chay qua 30 giay")
-          echo     except Exception as e:
-          echo         bot.reply_to(message, f"Loi thuc thi: {str(e^)}")
-          echo.
-          echo @bot.message_handler(commands=['upfile'])
-          echo def handle_upfile(message^):
-          echo     if not is_admin(message^):
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin")
-          echo         return
-          echo     bot.reply_to(message, "Hay gui file duoi dang tai lieu (document).")
-          echo.
-          echo @bot.message_handler(content_types=['document'])
-          echo def handle_document(message^):
-          echo     if not is_admin(message^):
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin")
-          echo         return
-          echo     try:
-          echo         file_info = bot.get_file(message.document.file_id)
-          echo         downloaded_file = bot.download_file(file_info.file_path)
-          echo         save_path = os.path.join(UPLOAD_FOLDER, message.document.file_name)
-          echo         with open(save_path, 'wb') as new_file:
-          echo             new_file.write(downloaded_file)
-          echo         bot.reply_to(message, f"Tai file thanh cong: {save_path}")
-          echo     except Exception as e:
-          echo         bot.reply_to(message, f"Tai file that bai: {str(e^)}")
-          echo.
-          echo @bot.message_handler(commands=['rmfile'])
-          echo def handle_rmfile(message^):
-          echo     if not is_admin(message^):
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin")
-          echo         return
-          echo     filename = message.text.replace('/rmfile', '').strip(^)
-          echo     if not filename:
-          echo         bot.reply_to(message, "Loi: Chua ten file. Cu phap: /rmfile ^<ten_file^>")
-          echo         return
-          echo     file_path = os.path.join(UPLOAD_FOLDER, filename)
-          echo     try:
-          echo         if os.path.exists(file_path):
-          echo             os.remove(file_path)
-          echo             bot.reply_to(message, f"Da xoa file: {file_path}")
-          echo         else:
-          echo             bot.reply_to(message, f"Khong tim thay file: {file_path}")
-          echo     except Exception as e:
-          echo         bot.reply_to(message, f"Loi xoa file: {str(e^)}")
-          echo.
-          echo @bot.message_handler(commands=['lsfile'])
-          echo def handle_lsfile(message^):
-          echo     if not is_admin(message^):
-          echo         bot.reply_to(message, "Loi: Ban khong phai admin")
-          echo         return
-          echo     try:
-          echo         files = os.listdir(UPLOAD_FOLDER)
-          echo         if not files:
-          echo             bot.reply_to(message, "Thu muc uploads trong.")
-          echo             return
-          echo         file_list = "\n".join(files)
-          echo         if len(file_list^) > 4096:
-          echo             file_list = file_list[:4093] + "..."
-          echo         bot.reply_to(message, f"Danh sach file trong uploads:\n{file_list}")
-          echo     except Exception as e:
-          echo         bot.reply_to(message, f"Loi doc thu muc: {str(e^)}")
-          echo.
-          echo @bot.message_handler(commands=['start'])
-          echo def handle_start(message^):
-          echo     if is_admin(message^):
-          echo         bot.reply_to(message, "Bot RDP san sang. Cac lenh: /cmd, /upfile, /rmfile, /lsfile")
-          echo     else:
-          echo         bot.reply_to(message, "Bot chi danh cho admin")
-          echo.
-          echo if __name__ == "__main__":
-          echo     print("Bot dang chay...")
-          echo     bot.infinity_polling(^)
-          ) > telegram_bot.py
+          Start-Process -NoNewWindow -FilePath "C:\tmate\tmate.exe" -ArgumentList "-S", "github.socket", "new-session", "-d"
+          Start-Sleep -Seconds 5
+          $tmateOutput = & "C:\tmate\tmate.exe" -S github.socket display -p '#{tmate_ssh}'
+          Write-Host "TMATE SSH: $tmateOutput"
+          echo "TMATE_SSH=$tmateOutput" >> $env:GITHUB_ENV
 
       - name: Install Tailscale
         run: |
@@ -180,7 +75,7 @@ jobs:
           echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
           Write-Host "IP_ADDRESS=$tsIP"
 
-      - name: Show RDP Info
+      - name: Show RDP and Tmate Info
         run: |
           Write-Host ""
           Write-Host "========================================="
@@ -192,39 +87,25 @@ jobs:
           Write-Host "Port: 3389"
           Write-Host "========================================="
           Write-Host ""
+          Write-Host "========================================="
+          Write-Host "TMATE SSH ACCESS"
+          Write-Host "========================================="
+          Write-Host "$env:TMATE_SSH"
+          Write-Host "========================================="
+          Write-Host ""
 
-      - name: Send Telegram Start Notification
+      - name: Keep RDP Alive
         run: |
-          $url = "https://api.telegram.org/bot7845936454:AAGXrQsn4HRpj4cmVxXD-pMvgbXA-9ztu48/sendMessage"
-          $body = @{
-              chat_id = "7235906278"
-              text = "RDP STARTED at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss UTC')`nTailscale IP: $env:TAILSCALE_IP`nUser: HUU_MINH`nPass: HUU-MINH@123`nPort: 3389"
-          } | ConvertTo-Json
-          Invoke-RestMethod -Uri $url -Method Post -Body $body -ContentType "application/json"
-
-      - name: Start Telegram Bot and Keep RDP Alive
-        run: |
-          python telegram_bot.py &
-          $url = "https://api.telegram.org/bot7845936454:AAGXrQsn4HRpj4cmVxXD-pMvgbXA-9ztu48/sendMessage"
           $IP = "$env:TAILSCALE_IP"
           $startTime = Get-Date
           $maxMinutes = 280
-          $heartbeatCounter = 0
           while (((Get-Date) - $startTime).TotalMinutes -lt $maxMinutes) {
               Write-Host "[$(Get-Date)] RDP Active - Connect to $IP`:3389"
               Write-Host "Username: HUU_MINH | Password: HUU-MINH@123"
+              Write-Host "Tmate SSH: $env:TMATE_SSH"
               $tsStatus = & "$env:ProgramFiles\Tailscale\tailscale.exe" status 2>$null
               if ($LASTEXITCODE -ne 0) {
                   & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
-              }
-              $heartbeatCounter++
-              if ($heartbeatCounter -ge 60) {
-                  $heartbeat = @{
-                      chat_id = "7235906278"
-                      text = "[HEARTBEAT] RDP still running. Uptime: $([math]::Round(((Get-Date) - $startTime).TotalMinutes,0)) minutes. IP: $IP"
-                  } | ConvertTo-Json
-                  Invoke-RestMethod -Uri $url -Method Post -Body $heartbeat -ContentType "application/json" -ErrorAction SilentlyContinue
-                  $heartbeatCounter = 0
               }
               Start-Sleep -Seconds 60
           }
@@ -237,6 +118,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
           echo "Last run: $timestamp - RDP IP: $env:TAILSCALE_IP" > keep_alive.txt
+          echo "Tmate SSH: $env:TMATE_SSH" >> keep_alive.txt
           git add keep_alive.txt
           git commit -m "Keep-alive: RDP heart-beat" || echo "No changes"
           git push || echo "No push"
