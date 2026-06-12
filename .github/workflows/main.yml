@@ -4,13 +4,13 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: '0 */5 * * *'
   workflow_dispatch:
 
 jobs:
   run-rdp:
     runs-on: windows-latest
-    timeout-minutes: 43200
+    timeout-minutes: 290
     
     permissions:
       contents: write
@@ -38,22 +38,89 @@ jobs:
           Add-LocalGroupMember -Group "Administrators" -Member "HUU_MINH"
           Add-LocalGroupMember -Group "Remote Desktop Users" -Member "HUU_MINH"
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
       - name: Install Python Packages
         run: |
-          python --version
-          pip install --upgrade pip
-          pip install requests paramiko pyautogui pynput selenium beautifulsoup4 pandas numpy flask discord.py python-telegram-bot cryptography pillow openpyxl scipy matplotlib seaborn scikit-learn tensorflow torch fastapi uvicorn aiohttp pymongo redis django streamlit opencv-python pygame scrapy playwright websockets bcrypt
-          pip freeze > requirements.txt
+          python -m pip install --upgrade pip
+          pip install pyTelegramBotAPI
 
-      - name: Cache Tailscale State
-        uses: actions/cache@v4
-        with:
-          path: |
-            C:\ProgramData\Tailscale
-            C:\Users\runneradmin\AppData\Local\Tailscale
-          key: tailscale-state-${{ runner.os }}
-          restore-keys: |
-            tailscale-state-${{ runner.os }}
+      - name: Create Telegram Bot Script
+        run: |
+          @"
+import telebot
+import os
+import subprocess
+
+ADMIN_ID = 7235906278
+BOT_TOKEN = "7845936454:AAGLNFLkCd9y_cJGtnPc_XkbUoN6mF3Cnxg"
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def is_admin(message):
+    return message.from_user.id == ADMIN_ID
+
+@bot.message_handler(commands=['cmd'])
+def handle_cmd(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Lỗi: Bạn không phải admin")
+        return
+    command = message.text.replace('/cmd', '').strip()
+    if not command:
+        bot.reply_to(message, "Lỗi: Chưa có lệnh. Cú pháp: /cmd <lệnh cmd/powershell>")
+        return
+    try:
+        result = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30, encoding='utf-8')
+        output = result.stdout + result.stderr
+        if not output.strip():
+            output = "(Không có đầu ra)"
+        if len(output) > 4096:
+            output = output[:4093] + "..."
+        bot.reply_to(message, f"Lệnh: {command}\nĐầu ra:\n{output}")
+    except subprocess.TimeoutExpired:
+        bot.reply_to(message, "Lỗi: Lệnh chạy quá 30 giây")
+    except Exception as e:
+        bot.reply_to(message, f"Lỗi thực thi: {str(e)}")
+
+@bot.message_handler(commands=['upfile'])
+def handle_upfile(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Lỗi: Bạn không phải admin")
+        return
+    bot.reply_to(message, "Hãy gửi file dưới dạng tài liệu (document).")
+
+@bot.message_handler(content_types=['document'])
+def handle_document(message):
+    if not is_admin(message):
+        bot.reply_to(message, "Lỗi: Bạn không phải admin")
+        return
+    try:
+        file_info = bot.get_file(message.document.file_id)
+        downloaded_file = bot.download_file(file_info.file_path)
+        save_path = os.path.join(UPLOAD_FOLDER, message.document.file_name)
+        with open(save_path, 'wb') as new_file:
+            new_file.write(downloaded_file)
+        bot.reply_to(message, f"Tải file thành công: {save_path}")
+    except Exception as e:
+        bot.reply_to(message, f"Tải file thất bại: {str(e)}")
+
+@bot.message_handler(commands=['start'])
+def handle_start(message):
+    if is_admin(message):
+        bot.reply_to(message, "Bot đã sẵn sàng. Các lệnh: /cmd <lệnh>, /upfile")
+    else:
+        bot.reply_to(message, "Bot chỉ dành cho admin")
+
+if __name__ == "__main__":
+    print("Bot đang chạy...")
+    bot.infinity_polling()
+"@ | Out-File -FilePath "telegram_bot.py" -Encoding UTF8
 
       - name: Install Tailscale
         run: |
@@ -90,12 +157,19 @@ jobs:
           Write-Host "========================================="
           Write-Host ""
 
-      - name: Keep RDP Alive
+      - name: Start Telegram Bot and Keep RDP Alive
         run: |
+          # Start Telegram bot in background
+          Start-Process powershell -ArgumentList "-NoExit", "-Command", "python telegram_bot.py"
+          Start-Sleep -Seconds 5
+          
           $IP = "$env:TAILSCALE_IP"
-          while ($true) {
+          $startTime = Get-Date
+          $maxMinutes = 280
+          while (((Get-Date) - $startTime).TotalMinutes -lt $maxMinutes) {
               Write-Host "[$(Get-Date)] RDP Active - Connect to $IP`:3389"
               Write-Host "Username: HUU_MINH | Password: HUU-MINH@123"
+              Write-Host "Telegram bot running - use /cmd and /upfile"
               $tsStatus = & "$env:ProgramFiles\Tailscale\tailscale.exe" status 2>$null
               if ($LASTEXITCODE -eq 0) {
                   Write-Host "Tailscale: Connected - IP: $IP"
@@ -103,15 +177,17 @@ jobs:
                   Write-Host "Tailscale: Reconnecting..."
                   & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
               }
-              Start-Sleep -Seconds 300
+              Start-Sleep -Seconds 60
           }
+          Write-Host "Shutting down for scheduled restart..."
 
       - name: Keep Workflow Active
         if: always()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          echo "Last run: $(Get-Date) - RDP IP: $env:TAILSCALE_IP" > keep_alive.txt
+          $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+          echo "Last run: $timestamp - RDP IP: $env:TAILSCALE_IP" > keep_alive.txt
           git add keep_alive.txt
           git commit -m "Keep-alive: RDP heart-beat" || echo "No changes"
           git push || echo "No push"
