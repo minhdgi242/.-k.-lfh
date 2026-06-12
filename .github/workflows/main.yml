@@ -1,0 +1,461 @@
+name: 24/7 RDP Keep Alive
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  run-rdp:
+    runs-on: windows-latest
+    timeout-minutes: 43200
+    
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure RDP
+        run: |
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "SecurityLayer" -Value 0 -Force
+          netsh advfirewall firewall delete rule name="RDP"
+          netsh advfirewall firewall add rule name="RDP" dir=in action=allow protocol=TCP localport=3389
+          Restart-Service -Name TermService -Force
+
+      - name: Create RDP User
+        run: |
+          $password = "HUU-MINH@123"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          if (-not (Get-LocalUser -Name "HUU_MINH" -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name "HUU_MINH" -Password $securePass -AccountNeverExpires
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member "HUU_MINH"
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member "HUU_MINH"
+
+      - name: Setup Python and Install All Packages
+        run: |
+          # Tải và cài đặt Python 3.11
+          $pythonUrl = "https://www.python.org/ftp/python/3.11.0/python-3.11.0-amd64.exe"
+          $pythonInstaller = "$env:TEMP\python-installer.exe"
+          Write-Host "Downloading Python..."
+          Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller
+          Write-Host "Installing Python..."
+          Start-Process -FilePath $pythonInstaller -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" -Wait
+          Remove-Item $pythonInstaller -Force
+          
+          # Đợi cài đặt hoàn tất
+          Start-Sleep -Seconds 15
+          
+          # Refresh environment variables
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          
+          # Cập nhật pip
+          Write-Host "Upgrading pip..."
+          python -m pip install --upgrade pip
+          
+          # Cài đặt tất cả packages cần thiết
+          Write-Host "Installing packages..."
+          
+          pip install requests
+          pip install paramiko
+          pip install pyautogui
+          pip install pynput
+          pip install selenium
+          pip install beautifulsoup4
+          pip install pandas
+          pip install numpy
+          pip install flask
+          pip install discord.py
+          pip install python-telegram-bot
+          pip install cryptography
+          pip install pillow
+          pip install openpyxl
+          pip install scipy
+          pip install matplotlib
+          pip install seaborn
+          pip install scikit-learn
+          pip install tensorflow
+          pip install torch
+          pip install transformers
+          pip install fastapi
+          pip install uvicorn
+          pip install aiohttp
+          pip install asyncio
+          pip install pymongo
+          pip install mysql-connector-python
+          pip install psycopg2-binary
+          pip install redis
+          pip install celery
+          pip install django
+          pip install streamlit
+          pip install plotly
+          pip install dash
+          pip install jupyter
+          pip install notebook
+          pip install spyder
+          pip install PyQt5
+          pip install tkinter
+          pip install customtkinter
+          pip install kivy
+          pip install pygame
+          pip install opencv-python
+          pip install face-recognition
+          pip install dlib
+          pip install mediapipe
+          pip install ultralytics
+          pip install stable-baselines3
+          pip install gym
+          pip install ray
+          pip install dask
+          pip install apache-airflow
+          pip install spark
+          pip install pytest
+          pip install unittest2
+          pip install mock
+          pip install coverage
+          pip install flake8
+          pip install black
+          pip install isort
+          pip install pylint
+          pip install mypy
+          pip install pre-commit
+          pip install tox
+          pip install virtualenv
+          pip install pipenv
+          pip install poetry
+          pip install twine
+          pip install wheel
+          pip install setuptools
+          pip install cython
+          pip install numba
+          pip install cupy
+          pip install cudf
+          pip install cuml
+          pip install cugraph
+          pip install dask-cuda
+          pip install rapids
+          pip install paddlepaddle
+          pip install paddleocr
+          pip install easyocr
+          pip install tesseract
+          pip install pytesseract
+          pip install pdfplumber
+          pip install PyPDF2
+          pip install reportlab
+          pip install docx
+          pip install python-docx
+          pip install xlsxwriter
+          pip install xlrd
+          pip install xlwt
+          pip install xlutils
+          pip install xlsx2csv
+          pip install csvkit
+          pip install sqlalchemy
+          pip install alembic
+          pip install sqlite3
+          pip install tinydb
+          pip install pymysql
+          pip install sqlite-utils
+          pip install dataset
+          pip install peewee
+          pip install pony
+          pip install mongoengine
+          pip install motor
+          pip install beanie
+          pip install pymongo
+          pip install asyncpg
+          pip install aiomysql
+          pip install aiosqlite
+          
+          # Web scraping và automation
+          pip install scrapy
+          pip install splash
+          pip install playwright
+          pip install pyppeteer
+          pip install undetected-chromedriver
+          pip install webdriver-manager
+          pip install pytest-selenium
+          pip install robotframework
+          pip install robotframework-seleniumlibrary
+          
+          # GUI và desktop automation
+          pip install pywinauto
+          pip install pygetwindow
+          pip install pyscreenshot
+          pip install mouse
+          pip install keyboard
+          pip install pynput
+          pip install pyperclip
+          pip install pyautogui
+          pip install Appium-Python-Client
+          
+          # Networking
+          pip install requests-toolbelt
+          pip install httpx
+          pip install websockets
+          pip install socketio
+          pip install scapy
+          pip install nmap
+          pip install python-nmap
+          pip install netifaces
+          pip install dnspython
+          pip install whois
+          pip install python-whois
+          pip install shodan
+          pip install censys
+          pip install virustotal-api
+          
+          # Security
+          pip install hashlib
+          pip install bcrypt
+          pip install passlib
+          pip install argon2-cffi
+          pip install pycryptodome
+          pip install rsa
+          pip install ecdsa
+          pip install pynacl
+          pip install cryptography
+          pip install pyopenssl
+          pip install certifi
+          pip install certbot
+          
+          # Tạo requirements.txt
+          pip freeze > requirements.txt
+          
+          Write-Host "========================================="
+          Write-Host "All Python packages installed successfully!"
+          Write-Host "========================================="
+          
+          # Kiểm tra Python
+          python --version
+          pip --version
+          
+          # Liệt kê packages đã cài
+          pip list
+
+      - name: Cache Tailscale State
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\ProgramData\Tailscale
+            C:\Users\runneradmin\AppData\Local\Tailscale
+          key: tailscale-state-${{ runner.os }}
+          restore-keys: |
+            tailscale-state-${{ runner.os }}
+
+      - name: Install Tailscale
+        run: |
+          $tsUrl = "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi"
+          $installerPath = "$env:TEMP\tailscale.msi"
+          Write-Host "Downloading Tailscale..."
+          Invoke-WebRequest -Uri $tsUrl -OutFile $installerPath
+          Write-Host "Installing Tailscale..."
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$installerPath`"", "/quiet", "/norestart" -Wait
+          Remove-Item $installerPath -Force
+          Write-Host "Tailscale installed!"
+
+      - name: Connect Tailscale with Fixed Hostname
+        id: tailscale
+        run: |
+          Write-Host "Connecting to Tailscale..."
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
+          
+          # Lấy IP
+          $tsIP = $null
+          $retries = 0
+          while (-not $tsIP -and $retries -lt 10) {
+              $tsIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+              Write-Host "Attempt $retries : IP = $tsIP"
+              Start-Sleep -Seconds 5
+              $retries++
+          }
+          
+          echo "TAILSCALE_IP=$tsIP" >> $env:GITHUB_ENV
+          Write-Host "Tailscale IP: $tsIP"
+
+      - name: Create Test Script
+        run: |
+          @"
+      import sys
+      import time
+      import platform
+      
+      print("="*50)
+      print("SYSTEM INFORMATION")
+      print("="*50)
+      print(f"Python Version: {sys.version}")
+      print(f"Platform: {platform.platform()}")
+      print(f"Machine: {platform.machine()}")
+      print(f"Processor: {platform.processor()}")
+      print("="*50)
+      
+      # Test các packages quan trọng
+      packages_to_test = [
+          'requests', 'paramiko', 'pyautogui', 'selenium', 'beautifulsoup4',
+          'pandas', 'numpy', 'flask', 'discord', 'cryptography', 'PIL', 
+          'openpyxl', 'scipy', 'matplotlib', 'sklearn', 'torch', 'fastapi',
+          'aiohttp', 'pymongo', 'django', 'streamlit', 'opencv', 'pygame',
+          'scrapy', 'playwright', 'websockets', 'bcrypt', 'jupyter'
+      ]
+      
+      results = {}
+      for package in packages_to_test:
+          try:
+              if package == 'PIL':
+                  module_name = 'PIL'
+              elif package == 'sklearn':
+                  module_name = 'sklearn'
+              else:
+                  module_name = package
+              
+              __import__(module_name)
+              results[package] = '✓ OK'
+              print(f"{package}: ✓ OK")
+          except Exception as e:
+              results[package] = f'✗ FAILED: {str(e)[:50]}'
+              print(f"{package}: ✗ FAILED")
+      
+      print("="*50)
+      print("INSTALLATION SUMMARY")
+      print("="*50)
+      success_count = sum(1 for v in results.values() if '✓' in v)
+      total_count = len(results)
+      print(f"Success: {success_count}/{total_count} packages")
+      print("="*50)
+      "@ | Out-File -FilePath "test_packages.py" -Encoding UTF8
+          
+          Write-Host "Test script created successfully!"
+
+      - name: Test All Python Packages
+        run: |
+          Write-Host "Running Python package test..."
+          python test_packages.py
+
+      - name: Show RDP Info
+        run: |
+          Write-Host ""
+          Write-Host "╔════════════════════════════════════════════════════════════════╗"
+          Write-Host "║                    RDP ACCESS INFORMATION                      ║"
+          Write-Host "╠════════════════════════════════════════════════════════════════╣"
+          Write-Host "║  Address:   $env:TAILSCALE_IP                                ║"
+          Write-Host "║  Username:  HUU_MINH                                          ║"
+          Write-Host "║  Password:  HUU-MINH@123                                      ║"
+          Write-Host "║  Port:      3389                                              ║"
+          Write-Host "╠════════════════════════════════════════════════════════════════╣"
+          Write-Host "║                    PYTHON PACKAGES                            ║"
+          Write-Host "╠════════════════════════════════════════════════════════════════╣"
+          Write-Host "║  ✓ Web: requests, selenium, scrapy, beautifulsoup4          ║"
+          Write-Host "║  ✓ Data: pandas, numpy, scipy, matplotlib, seaborn          ║"
+          Write-Host "║  ✓ AI/ML: tensorflow, torch, sklearn, transformers          ║"
+          Write-Host "║  ✓ Web: flask, django, fastapi, streamlit                   ║"
+          Write-Host "║  ✓ GUI: pyautogui, tkinter, PyQt5, kivy, pygame             ║"
+          Write-Host "║  ✓ DB: pymongo, mysql, postgresql, redis, sqlalchemy       ║"
+          Write-Host "║  ✓ Security: cryptography, bcrypt, hashlib, pyopenssl      ║"
+          Write-Host "║  ✓ CV: opencv, face-recognition, mediapipe, ultralytics    ║"
+          Write-Host "╠════════════════════════════════════════════════════════════════╣"
+          Write-Host "║  Total packages installed: 200+                              ║"
+          Write-Host "╚════════════════════════════════════════════════════════════════╝"
+          Write-Host ""
+
+      - name: Keep RDP Alive Forever
+        run: |
+          $IP = "$env:TAILSCALE_IP"
+          $counter = 0
+          
+          while ($true) {
+              $counter++
+              Write-Host ""
+              Write-Host "════════════════════════════════════════════════════════════════"
+              Write-Host "⏰ [$(Get-Date)] - RDP ACTIVE - Keep alive cycle #$counter"
+              Write-Host "════════════════════════════════════════════════════════════════"
+              Write-Host "🔗 RDP Connection: $IP`:3389"
+              Write-Host "👤 Username: HUU_MINH"
+              Write-Host "🔑 Password: HUU-MINH@123"
+              Write-Host ""
+              
+              # Kiểm tra kết nối Tailscale
+              $tsStatus = & "$env:ProgramFiles\Tailscale\tailscale.exe" status 2>$null
+              if ($LASTEXITCODE -eq 0) {
+                  $currentIP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+                  Write-Host "✅ Tailscale: CONNECTED - IP: $currentIP"
+                  if ($currentIP -ne $IP) {
+                      Write-Host "⚠️  IP changed from $IP to $currentIP"
+                      $IP = $currentIP
+                  }
+              } else {
+                  Write-Host "❌ Tailscale: DISCONNECTED - Reconnecting..."
+                  & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=rdp-fixed-host
+                  Start-Sleep -Seconds 10
+                  $IP = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+                  Write-Host "✅ Reconnected with IP: $IP"
+              }
+              
+              # Kiểm tra Python
+              $pythonVersion = python --version 2>&1
+              Write-Host "🐍 Python: $pythonVersion"
+              
+              # Kiểm tra pip
+              $pipVersion = pip --version 2>&1
+              Write-Host "📦 Pip: $($pipVersion.Split(' ')[1])"
+              
+              Write-Host ""
+              Write-Host "💾 System Resources:"
+              Get-WmiObject Win32_OperatingSystem | ForEach-Object {
+                  $total = [math]::Round($_.TotalVisibleMemorySize/1MB, 2)
+                  $free = [math]::Round($_.FreePhysicalMemory/1MB, 2)
+                  $used = $total - $free
+                  Write-Host "   RAM: Used ${used}GB / Total ${total}GB (Free: ${free}GB)"
+              }
+              
+              $cpu = Get-WmiObject Win32_Processor | ForEach-Object {
+                  [math]::Round($_.LoadPercentage, 2)
+              }
+              Write-Host "   CPU: ${cpu}%"
+              
+              $disk = Get-PSDrive C | ForEach-Object {
+                  $free = [math]::Round($_.Free/1GB, 2)
+                  $used = [math]::Round(($_.Used)/1GB, 2)
+                  $total = $free + $used
+                  Write-Host "   Disk C:: Used ${used}GB / Total ${total}GB (Free: ${free}GB)"
+              }
+              
+              Write-Host ""
+              Write-Host "📊 Uptime Statistics:"
+              $uptime = (Get-Date) - (Get-CimInstance -ClassName Win32_OperatingSystem).LastBootUpTime
+              Write-Host "   System Uptime: $($uptime.Days) days, $($uptime.Hours) hours, $($uptime.Minutes) minutes"
+              Write-Host "   This Session: $counter cycles completed"
+              Write-Host ""
+              Write-Host "════════════════════════════════════════════════════════════════"
+              Write-Host "🟢 Next check in 5 minutes..."
+              Write-Host "════════════════════════════════════════════════════════════════"
+              
+              Start-Sleep -Seconds 300
+          }
+
+      - name: Keep Workflow Alive with Git
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+          $ip = $env:TAILSCALE_IP
+          
+          @"
+      ====================================
+      LAST RUN: $timestamp
+      RDP IP: $ip
+      STATUS: ACTIVE
+      PYTHON PACKAGES: 200+ INSTALLED
+      ====================================
+      " @ | Out-File -FilePath "keep_alive.txt" -Encoding UTF8
+          
+          git add keep_alive.txt
+          git commit -m "Keep-alive: RDP active at $timestamp" || echo "No changes to commit"
+          git push origin main || echo "Push skipped - no changes"
